@@ -15,9 +15,9 @@ close all;clc;%clear
 % (4) Use the toolbox to load the rosbag
 % (5) Set up threshold for LiDAR detections.
 %     Ex. x>0, y<2, y>-2, Z<1, r<5
-% (6) Choose to use pinhole camera model or fisheye camera model
-% (7) Type in the position of board upper corner in the image associate to
+% (6) Type in the position of board upper corner in the image associate to
 %     selected LiDAR frames.
+% (7) Choose to use pinhole camera model or fisheye camera model
 % (8) The toolbox will use generic algorithm to estimate the
 %     transformation parameters.
 
@@ -105,10 +105,9 @@ while(flag_sel < 1)
     idx_present = (1-idx);
     pc_present = pc(:,logical(idx_present));
 
-
-    plot3(pc_present(1,:),pc_present(2,:),pc_present(3,:),'.b');
-    hold on
     plot3(pc_sel(1,:),pc_sel(2,:),pc_sel(3,:),'.r');
+    hold on
+    plot3(pc_present(1,:),pc_present(2,:),pc_present(3,:),'.b');
     hold off
     xlabel('x')
     ylabel('y')
@@ -138,7 +137,7 @@ mkdir(dir_name);
 close all;
 labels=zeros(0,7); % [LiDAR_frame_id, image_frame_id,x,y,z,u,v]
 
-for LiDAR_frame_id = 74:LiDAR_frame_count
+for LiDAR_frame_id = 1:LiDAR_frame_count
     
     % read LiDAR point cloud
     msgStructs = readMessages(bSel_LiDAR,LiDAR_frame_id);
@@ -192,8 +191,9 @@ for LiDAR_frame_id = 74:LiDAR_frame_count
     
     % visualization
     figure(1);
-    hold on
+    
     plot3(pc_present(1,:),pc_present(2,:),pc_present(3,:),'.b');
+    hold on
     plot3(pc_sel(1,:),pc_sel(2,:),pc_sel(3,:),'.r');
     plot3(x_LiDAR,y_LiDAR,z_LiDAR,'.g','MarkerSize',20);
     
@@ -322,7 +322,7 @@ if(flag_pinhole == 1)
     for i_ga =1:20
         options = optimoptions('ga','MaxGenerations',50,'PopulationSize',2000,...
             'MaxStallGenerations',Inf,'PlotFcn',@gaplotbestf);
-        param_pinhole = ga(@fun_ga_pinhole,10,[],[],[],[],lb_fisheye,ub_fisheye,[],options);
+        param_pinhole = ga(@fun_ga_pinhole,10,[],[],[],[],lb_pinhole,ub_pinhole,[],options);
         error = fun_ga_pinhole(param_pinhole);
         error_pinhole_rec(i_ga,1)=error;
         param_pinhole_rec(i_ga,:)=param_pinhole;
@@ -336,50 +336,51 @@ if(flag_pinhole == 1)
 end
 
 %% export pinhole result
-% Extrinsic matrix
-eul = [param(1),param(2),param(3)];
-R = eul2rotm(eul,'ZYX'); % lidar to camera, aka. pose of lidar in camera coordinate
-T = [param(4) param(5) param(6)]'; % lidar to camera, aka. pose of lidar in camera coordinate
-Tr_pinhole = [R, T];
+if(flag_pinhole == 1)
+    % Extrinsic matrix
+    eul = [param_pinhole(1),param_pinhole(2),param_pinhole(3)];
+    R = eul2rotm(eul,'ZYX'); % lidar to camera, aka. pose of lidar in camera coordinate
+    T = [param_pinhole(4) param_pinhole(5) param_pinhole(6)]'; % lidar to camera, aka. pose of lidar in camera coordinate
+    Tr_pinhole = [R, T];
 
-% Intrinsic matrix
-focus = [param(7),param(8)];
-offset = [param(9),param(10)];
+    % Intrinsic matrix
+    focus = [param_pinhole(7),param_pinhole(8)];
+    offset = [param_pinhole(9),param_pinhole(10)];
 
-K = [focus(1),0,offset(1);
-    0,focus(2),offset(2);
-    0,      0,         1];
+    K = [focus(1),0,offset(1);
+        0,focus(2),offset(2);
+        0,      0,         1];
 
-fun_export_calibration(R,T,[],K);
-
+    fun_export_calibration(R,T,[],K);
+end
 %% visulize example result: pinhole
-
-LiDAR_frame_id = round(LiDAR_frame_count/2);
-msgStructs = readMessages(bSel_LiDAR,LiDAR_frame_id);
-pc = fun_read_pc(msgStructs);
-idx = fun_pc_sel(pc);
-pc_sel = pc(:,logical(idx));
-
-    
-% get associate camera frame
-LiDAR_time = bSel_LiDAR.MessageList.Time(LiDAR_frame_id);
-[~, image_frame_id]=min(abs(bSel_image.MessageList.Time-LiDAR_time));
-
-msgStructs = readMessages(bSel_image,image_frame_id);
-image = fun_read_image(msgStructs);
-
-% project LiDAR point cloud to image
-pc_img = fun_proj_pinhole(param_pinhole,pc_sel(1:3,:));
-
-    
-figure;
-imshow(image);
-hold on
-plot(pc_img(1,:),pc_img(2,:),'.b');
-hold off
-title('visulize example result: pinhole model')
+if(flag_pinhole == 1)
+    LiDAR_frame_id = round(LiDAR_frame_count/2);
+    msgStructs = readMessages(bSel_LiDAR,LiDAR_frame_id);
+    pc = fun_read_pc(msgStructs);
+    idx = fun_pc_sel(pc);
+    pc_sel = pc(:,logical(idx));
 
 
+    % get associate camera frame
+    LiDAR_time = bSel_LiDAR.MessageList.Time(LiDAR_frame_id);
+    [~, image_frame_id]=min(abs(bSel_image.MessageList.Time-LiDAR_time));
+
+    msgStructs = readMessages(bSel_image,image_frame_id);
+    image = fun_read_image(msgStructs);
+
+    % project LiDAR point cloud to image
+    pc_img = fun_proj_pinhole(param_pinhole,pc_sel(1:3,:));
+
+
+    figure;
+    imshow(image);
+    hold on
+    plot(pc_img(1,:),pc_img(2,:),'.b');
+    hold off
+    title('visulize example result: pinhole model')
+
+end
 %% Calibration using fisheye model
 
 
@@ -392,9 +393,10 @@ if(flag_fisheye == 1)
     flag_ub=0;
     
     %default boundaries.
-    lb_fisheye = [pi/2-0.3*pi, -pi/2-0.3*pi, -0.3*pi, -1, -1, -1,  300,  300, 300, 300, -2e-1, -2e-1, -2e-1, -2e-1];
-    ub_fisheye = [pi/2+0.3*pi, -pi/2+0.3*pi,  0.3*pi,  1,  1,  1, 1000, 1000, 900, 900,  2e-1,  2e-1,  2e-1,  2e-1];
-
+%     lb_fisheye = [pi/2-0.3*pi, -pi/2-0.3*pi, -0.3*pi, -1, -1, -1,  300,  300, 300, 300, -2e-1, -2e-1, -2e-1, -2e-1];
+%     ub_fisheye = [pi/2+0.3*pi, -pi/2+0.3*pi,  0.3*pi,  1,  1,  1, 1000, 1000, 900, 900,  2e-1,  2e-1,  2e-1,  2e-1];
+    lb_fisheye = [0.628318530717959,-2.51327412287183,-0.942477796076938,-1,-1,-1,300,300,300,300,-0.200000000000000,-0.200000000000000,-0.200000000000000,-0.200000000000000];
+    ub_fisheye = [2.51327412287183,-0.628318530717959,0.942477796076938,1,1,1,1000,1000,900,900,0.200000000000000,0.200000000000000,0.200000000000000,0.200000000000000];
 
     while (flag_lb<1)
         str = input('>>Please set the lower boundary:\n>>yaw,pitch,roll,tx,ty,tz,focus_x,focus_y,offset_x,offset_y,theta3,theta5,theta7,theta9\n>>','s');
@@ -437,51 +439,52 @@ if(flag_fisheye == 1)
     save('param_fisheye','param_fisheye')
 end
 %% export result
-% Extrinsic matrix
-eul = [param(1),param(2),param(3)];
-R = eul2rotm(eul,'ZYX'); % lidar to camera, aka. pose of lidar in camera coordinate
-T = [param(4) param(5) param(6)]'; % lidar to camera, aka. pose of lidar in camera coordinate
-Tr = [R, T];
+if(flag_fisheye == 1)
+    % Extrinsic matrix
+    eul = [param(1),param(2),param(3)];
+    R = eul2rotm(eul,'ZYX'); % lidar to camera, aka. pose of lidar in camera coordinate
+    T = [param(4) param(5) param(6)]'; % lidar to camera, aka. pose of lidar in camera coordinate
+    Tr = [R, T];
 
 
-% Fisheye camera model
-theta_d = [1, param(11), param(12), param(13), param(14)];
+    % Fisheye camera model
+    theta_d = [1, param(11), param(12), param(13), param(14)];
 
-% Intrinsic matrix
-focus = [param(7),param(8)];
-offset = [param(9),param(10)];
+    % Intrinsic matrix
+    focus = [param(7),param(8)];
+    offset = [param(9),param(10)];
 
-K = [focus(1),0,offset(1);
-    0,focus(2),offset(2);
-    0,      0,         1];
+    K = [focus(1),0,offset(1);
+        0,focus(2),offset(2);
+        0,      0,         1];
 
-fun_export_calibration(R,T,theta_d,K);
-
+    fun_export_calibration(R,T,theta_d,K);
+end
 %% visulize example result: fisheye model
-
-LiDAR_frame_id = round(LiDAR_frame_count/2);
-msgStructs = readMessages(bSel_LiDAR,LiDAR_frame_id);
-pc = fun_read_pc(msgStructs);
-idx = fun_pc_sel(pc);
-pc_sel = pc(:,logical(idx));
-
-    
-% get associate camera frame
-LiDAR_time = bSel_LiDAR.MessageList.Time(LiDAR_frame_id);
-[~, image_frame_id]=min(abs(bSel_image.MessageList.Time-LiDAR_time));
-
-msgStructs = readMessages(bSel_image,image_frame_id);
-image = fun_read_image(msgStructs);
-
-% project LiDAR point cloud to image
-pc_img = fun_proj_fisheye(param_fisheye,pc_sel(1:3,:));
-
-    
-figure;
-imshow(image);
-hold on
-plot(pc_img(1,:),pc_img(2,:),'.b');
-hold off
-title('visulize example result: fisheye model')
+if(flag_fisheye == 1)
+    LiDAR_frame_id = round(LiDAR_frame_count/2);
+    msgStructs = readMessages(bSel_LiDAR,LiDAR_frame_id);
+    pc = fun_read_pc(msgStructs);
+    idx = fun_pc_sel(pc);
+    pc_sel = pc(:,logical(idx));
 
 
+    % get associate camera frame
+    LiDAR_time = bSel_LiDAR.MessageList.Time(LiDAR_frame_id);
+    [~, image_frame_id]=min(abs(bSel_image.MessageList.Time-LiDAR_time));
+
+    msgStructs = readMessages(bSel_image,image_frame_id);
+    image = fun_read_image(msgStructs);
+
+    % project LiDAR point cloud to image
+    pc_img = fun_proj_fisheye(param_fisheye,pc_sel(1:3,:));
+
+
+    figure;
+    imshow(image);
+    hold on
+    plot(pc_img(1,:),pc_img(2,:),'.b');
+    hold off
+    title('visulize example result: fisheye model')
+
+end
