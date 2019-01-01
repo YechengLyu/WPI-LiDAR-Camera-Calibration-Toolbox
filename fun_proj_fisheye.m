@@ -476,18 +476,18 @@ end
 %% export result
 if(flag_fisheye == 1)
     % Extrinsic matrix
-    eul = [param(1),param(2),param(3)];
+    eul = [param_fisheye(1),param_fisheye(2),param_fisheye(3)];
     R = eul2rotm(eul,'ZYX'); % lidar to camera, aka. pose of lidar in camera coordinate
-    T = [param(4) param(5) param(6)]'; % lidar to camera, aka. pose of lidar in camera coordinate
+    T = [param_fisheye(4) param_fisheye(5) param_fisheye(6)]'; % lidar to camera, aka. pose of lidar in camera coordinate
     Tr = [R, T];
 
 
     % Fisheye camera model
-    theta_d = [1, param(11), param(12), param(13), param(14)];
+    theta_d = [1, param_fisheye(11), param_fisheye(12), param_fisheye(13), param_fisheye(14)];
 
     % Intrinsic matrix
-    focus = [param(7),param(8)];
-    offset = [param(9),param(10)];
+    focus = [param_fisheye(7),param_fisheye(8)];
+    offset = [param_fisheye(9),param_fisheye(10)];
 
     K = [focus(1),0,offset(1);
         0,focus(2),offset(2);
