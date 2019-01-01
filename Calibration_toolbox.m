@@ -121,11 +121,11 @@ while(flag_sel < 1)
     end
 
     
-    if(str=='y' || str=='Y')
+    if(strcmp(str,'y') || strcmp(str,'Y'))
         flag_sel = 1;
     end
     
-    if(str=='d' || str=='D')
+    if(strcmp(str,'d') || strcmp(str,'D'))
         fun_drop_pc_sel();
     end      
 end
@@ -160,6 +160,9 @@ for LiDAR_frame_id = 1:LiDAR_frame_count
         continue;
     end
     
+    
+
+    
     % if points on the top ring are far away (not a corner),
     % drop the frame   
     pc_corner = pc_sel(1:3,idx_conor);
@@ -167,6 +170,19 @@ for LiDAR_frame_id = 1:LiDAR_frame_count
     if(max(distance_matrix(:))>0.05)
         continue;
     end
+    
+    
+    
+    [~,idx_check] = find(pc_sel(5,:)==ring_max-2);
+    if(length(idx_check)<3)
+        continue;
+    end
+    pc_check = mean(pc_sel(1:3,idx_check),2);
+    pc_LiDAR = mean(pc_corner,2);
+    if(norm(pc_LiDAR-pc_check)>2)
+        fprintf('Warning!!!Corner point maybe invalid.\n');
+    end
+    
     
     % label the position of detected corner in LiDAR coordinate
     x_LiDAR = mean(pc_corner(1,:));
@@ -177,7 +193,7 @@ for LiDAR_frame_id = 1:LiDAR_frame_count
     
     % present a larger view for validation
     r = vecnorm(pc(1:3,:));
-    idx_present = (r<10).*(1-idx);
+    idx_present = (r<norm([x_LiDAR,y_LiDAR,z_LiDAR])*1.5).*(1-idx);
     pc_present = pc(:,logical(idx_present));
     
     
@@ -196,8 +212,9 @@ for LiDAR_frame_id = 1:LiDAR_frame_count
     hold on
     plot3(pc_sel(1,:),pc_sel(2,:),pc_sel(3,:),'.r');
     plot3(x_LiDAR,y_LiDAR,z_LiDAR,'.g','MarkerSize',20);
-    
     hold off
+    
+    
     xlabel('x')
     ylabel('y')
     zlabel('z')
@@ -214,7 +231,8 @@ for LiDAR_frame_id = 1:LiDAR_frame_count
     
     flag_uv = 0;
     while(flag_uv == 0)
-        str = input('>>Please point the corner in the image and press Enter or N to drop the frame:\n>>','s');
+        word = sprintf('>>LiDAR_frame %d/%d,Please point the corner in the image and press Enter or N to drop the frame:\n>>',LiDAR_frame_id,LiDAR_frame_count);
+        str = input(word,'s');
         c_info = getCursorInfo(dcm_obj);
         if(isempty(str))
             if(isempty(c_info))
@@ -228,10 +246,12 @@ for LiDAR_frame_id = 1:LiDAR_frame_count
                fileID = fopen(sprintf('%s/LiDAR_%06d.txt',dir_name,LiDAR_frame_id),'w');
                fprintf(fileID,'%f %f %f %f %f\n',pc);
                fclose(fileID);
+               save('labels','labels')
+               flag_uv = 1;
             end
         end
 
-        if(str == 'N' || str=='n')
+        if(strcmp(str,'N') || strcmp(str,'n'))
             flag_uv = 1;
         end
     end
@@ -240,7 +260,7 @@ for LiDAR_frame_id = 1:LiDAR_frame_count
     
     
 end
-save('labels','labels')
+
 
 % write labels to file;
 fileID = fopen('labels.txt','w');
@@ -248,6 +268,9 @@ for i_line = 1:size(labels,1)
     fprintf(fileID,'%f %f %f %f %f %f %f\n',labels(i_line,1),labels(i_line,2),labels(i_line,3),labels(i_line,4),labels(i_line,5),labels(i_line,6),labels(i_line,7));
 end
 fclose(fileID);
+
+
+fprintf('>>Finished data collection! \n');
 
 %% Setting calibration settings
 
