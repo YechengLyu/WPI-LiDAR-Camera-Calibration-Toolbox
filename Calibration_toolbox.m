@@ -56,8 +56,8 @@ if(~isempty(str))
     image_topic = str;
 end
 
-bSel_LiDAR = select(bag,'Topic','/velodyne_points');
-bSel_image = select(bag,'Topic','/camera/image_color');
+bSel_LiDAR = select(bag,'Topic',LiDAR_topic);
+bSel_image = select(bag,'Topic',image_topic);
 
 LiDAR_frame_count = size(bSel_LiDAR.MessageList,1);
 image_frame_count = size(bSel_image.MessageList,1);
